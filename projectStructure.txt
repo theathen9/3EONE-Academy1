@@ -1,0 +1,43 @@
+example-app1/ 
+│── .git/
+│── app/
+│── bootstrap/
+│── config/
+│── database/
+│── docker/
+    │── nginx/
+        │── default.conf
+        │── nginx.conf
+        │── entrypoint.sh
+    │── php/
+        │── Dockerfile
+        │── opache.ini
+        │── php.ini
+        │── www.conf
+│── node-modules/
+│── public/
+│── resources/
+│── routes/
+│── storage/
+│── resources/
+│── tests/
+│── vendor/
+│── resources/
+│── .dockerignore
+│── .editorconfig
+│── .env
+│── .env.production
+│── .gitattributes
+│── .gitignore
+│── .npmrc
+│── artisan
+│── composer.json
+│── composer.lock
+│── docker-compose.yml
+│── docker-compose-prod.yml
+│── package-lock.json
+│── package.json
+│── phpunit.xml
+│── vite.config.js
+│── README.md
+
