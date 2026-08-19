@@ -1,9 +1,9 @@
 # ./docker/php/Dockerfile.prod
+# ARG GITHUB_TOKEN
 
 # ============================================================
 # Stage 1: Build Dependencies (Node and Vite)
 # ============================================================
-ARG GITHUB_TOKEN
 FROM node:24.16.0-alpine AS frontend
 
 WORKDIR /app
@@ -16,6 +16,7 @@ COPY . .
 
 RUN npm run build
 
+
 # ============================================================
 # Stage 1: Build Dependencies (Composer)
 # ============================================================
@@ -26,10 +27,9 @@ WORKDIR /app
 COPY composer.json composer.lock ./
 
 # Configure GitHub OAuth token if provided
-
-RUN if [ -n "$GITHUB_TOKEN" ]; then \
-        composer config -g github-oauth.github.com "$GITHUB_TOKEN"; \
-    fi
+# RUN if [ -n "$GITHUB_TOKEN" ]; then \
+#         composer config -g github-oauth.github.com "$GITHUB_TOKEN"; \
+#     fi
 
 RUN --mount=type=cache,target=/root/.composer/cache \
     composer install \

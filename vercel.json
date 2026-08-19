@@ -3,7 +3,7 @@
     "services": {
         "api": {
             "root": ".",
-            "entrypoint": "docker/php/Dockerfile.prod",
+            "entrypoint": "Dockerfile",
             "runtime": "container"
         }
     },
