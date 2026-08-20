@@ -139,7 +139,7 @@ USER www-data
 
 EXPOSE 80
 
-ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
+# ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
 
 
 CMD ["/usr/local/bin/docker-entrypoint.sh"]
