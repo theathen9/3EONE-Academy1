@@ -137,7 +137,7 @@ RUN sed -i 's/\r$//' /usr/local/bin/docker-entrypoint.sh \
 
 USER www-data
 
-EXPOSE 9000
+EXPOSE 80
 
 ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
 
