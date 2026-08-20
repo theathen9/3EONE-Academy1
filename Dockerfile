@@ -1,17 +1,17 @@
 # ============================================================
 # Stage 1: Frontend
 # ============================================================
-# FROM node:24.16.0-alpine AS frontend
+FROM node:latest AS frontend
 
-# WORKDIR /app
+WORKDIR /app
 
-# COPY package*.json ./
+COPY package*.json ./
 
-# RUN npm ci
+RUN npm ci
 
-# COPY . .
+COPY . .
 
-# RUN npm run build
+RUN npm run build
 
 
 # ============================================================
@@ -51,6 +51,7 @@ FROM php:8.4-fpm AS production
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         git \
+        nginx \
         unzip \
         libfcgi-bin \
         zip \
@@ -111,8 +112,8 @@ COPY --chown=www-data:www-data . .
 COPY --chown=www-data:www-data \
     --from=vendor /app/vendor ./vendor
 
-# COPY --chown=www-data:www-data \
-#     --from=frontend /app/public/build ./public/build
+COPY --chown=www-data:www-data \
+    --from=frontend /app/public/build ./public/build
 
 
 # ============================================================
@@ -134,8 +135,11 @@ COPY docker/php/entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 RUN sed -i 's/\r$//' /usr/local/bin/docker-entrypoint.sh \
     && chmod +x /usr/local/bin/docker-entrypoint.sh
 
+USER www-data
+
 EXPOSE 9000
 
 ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
 
-USER www-data
+
+CMD ["php-fpm"]
