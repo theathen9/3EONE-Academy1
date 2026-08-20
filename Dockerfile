@@ -142,4 +142,4 @@ EXPOSE 9000
 ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
 
 
-CMD ["php-fpm"]
+CMD ["/usr/local/bin/docker-entrypoint.sh"]
