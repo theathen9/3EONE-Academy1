@@ -11,6 +11,7 @@ example-app1/
         │── entrypoint.sh
     │── php/
         │── Dockerfile
+        │── entrypoint.sh
         │── opache.ini
         │── php.ini
         │── www.conf

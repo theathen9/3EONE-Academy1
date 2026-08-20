@@ -4,13 +4,12 @@ services:
   # ------------------------------------------------------------
   web:
     image: nginx:alpine
-    container_name: laravel_prod_web
+    container_name: laravel_prod_web1
     restart: always
 
     ports:
       - "80:80"
       - "443:443"
-
     volumes:
       # Laravel public directory
       - public_data:/var/www/html/public:ro
@@ -27,7 +26,7 @@ services:
         condition: service_healthy
 
     networks:
-      - laravel_prod_network
+      - laravel_prod_network1
 
     logging:
       driver: json-file
@@ -46,7 +45,7 @@ services:
       args:
         GITHUB_TOKEN: ${GITHUB_TOKEN}
 
-    container_name: laravel_prod_app
+    container_name: laravel_prod_app1
     restart: always
 
     entrypoint:
@@ -82,7 +81,7 @@ services:
       start_period: 15s
 
     networks:
-      - laravel_prod_network
+      - laravel_prod_network1
 
     logging:
       driver: json-file
@@ -101,7 +100,7 @@ services:
       args:
         GITHUB_TOKEN: ${GITHUB_TOKEN}
 
-    container_name: laravel_prod_queue
+    container_name: laravel_prod_queue1
     restart: always
 
     entrypoint:
@@ -134,7 +133,7 @@ services:
         condition: service_healthy
 
     networks:
-      - laravel_prod_network
+      - laravel_prod_network1
 
     logging:
       driver: json-file
@@ -153,7 +152,7 @@ services:
       args:
         GITHUB_TOKEN: ${GITHUB_TOKEN}
 
-    container_name: laravel_prod_scheduler
+    container_name: laravel_prod_scheduler1
     restart: always
 
     entrypoint:
@@ -183,7 +182,7 @@ services:
         condition: service_healthy
 
     networks:
-      - laravel_prod_network
+      - laravel_prod_network1
 
     logging:
       driver: json-file
@@ -196,12 +195,12 @@ services:
   # ------------------------------------------------------------
   db:
     image: postgres:16-alpine
-    container_name: laravel_prod_db
+    container_name: laravel_prod_db1
     restart: always
 
     environment:
-      POSTGRES_DB: ${DB_DATABASE:-laravel_prod}
-      POSTGRES_USER: ${DB_USERNAME:-laravel_user}
+      POSTGRES_DB: ${DB_DATABASE:-laravel_prod_db}
+      POSTGRES_USER: ${DB_USERNAME:-laravel_prod_user}
       POSTGRES_PASSWORD: ${DB_PASSWORD}
 
     volumes:
@@ -211,14 +210,14 @@ services:
       test:
         [
           "CMD-SHELL",
-          "pg_isready -U ${DB_USERNAME:-laravel_user} -d ${DB_DATABASE:-laravel_prod}",
+          "pg_isready -U ${DB_USERNAME:-laravel_prod_user} -d ${DB_DATABASE:-laravel_prod_db}",
         ]
       interval: 5s
       timeout: 5s
       retries: 5
 
     networks:
-      - laravel_prod_network
+      - laravel_prod_network1
 
     logging:
       driver: json-file
@@ -231,7 +230,7 @@ services:
   # ------------------------------------------------------------
   redis:
     image: redis:alpine
-    container_name: laravel_prod_redis
+    container_name: laravel_prod_redis1
     restart: always
 
     command:
@@ -251,7 +250,7 @@ services:
       retries: 5
 
     networks:
-      - laravel_prod_network
+      - laravel_prod_network1
 
     logging:
       driver: json-file
@@ -282,5 +281,5 @@ volumes:
 # Networks
 # ------------------------------------------------------------
 networks:
-  laravel_prod_network:
+  laravel_prod_network1:
     driver: bridge

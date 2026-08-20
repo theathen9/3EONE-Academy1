@@ -1,29 +1,29 @@
 # ============================================================
-# Stage 1: Frontend
+# Stage 1: Frontend Build
 # ============================================================
-FROM node:latest AS frontend
+ARG GITHUB_TOKEN
 
-WORKDIR /app
+# FROM node:24.16.0-alpine AS frontend
 
-COPY package*.json ./
+# WORKDIR /app
 
-RUN npm ci
+# COPY package*.json ./
 
-COPY . .
+# RUN npm ci
 
-RUN npm run build
+# COPY . .
+
+# RUN npm run build
 
 
 # ============================================================
-# Stage 2: Composer
+# Stage 2: Composer Dependencies
 # ============================================================
 FROM composer:2 AS vendor
 
 WORKDIR /app
 
 COPY composer.json composer.lock ./
-
-ARG "GITHUB_TOKEN"
 
 RUN if [ -n "$GITHUB_TOKEN" ]; then \
         composer config -g github-oauth.github.com "$GITHUB_TOKEN"; \
@@ -44,18 +44,20 @@ RUN composer dump-autoload --optimize
 
 
 # ============================================================
-# Stage 3: Production
+# Stage 3: Production PHP-FPM
 # ============================================================
 FROM php:8.4-fpm AS production
 
+# ============================================================
+# System Dependencies + PHP Extensions
+# ============================================================
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         git \
-        nginx \
         unzip \
-        libfcgi-bin \
         zip \
         curl \
+        libfcgi-bin \
         libpq-dev \
         libzip-dev \
         libicu-dev \
@@ -103,6 +105,15 @@ COPY docker/php/opcache.ini \
 
 
 # ============================================================
+# Entrypoint
+# ============================================================
+COPY docker/php/entrypoint.sh \
+    /usr/local/bin/docker-entrypoint.sh
+
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+
+
+# ============================================================
 # Application
 # ============================================================
 WORKDIR /var/www/html
@@ -112,12 +123,12 @@ COPY --chown=www-data:www-data . .
 COPY --chown=www-data:www-data \
     --from=vendor /app/vendor ./vendor
 
-COPY --chown=www-data:www-data \
-    --from=frontend /app/public/build ./public/build
+# COPY --chown=www-data:www-data \
+#     --from=frontend /app/public/build ./public/build
 
 
 # ============================================================
-# Laravel permissions
+# Laravel Storage / Cache Permissions
 # ============================================================
 RUN mkdir -p \
         storage/framework/cache \
@@ -129,17 +140,13 @@ RUN mkdir -p \
         bootstrap/cache
 
 
-# Entrypoint
-COPY docker/php/entrypoint.sh /usr/local/bin/docker-entrypoint.sh
-
-RUN sed -i 's/\r$//' /usr/local/bin/docker-entrypoint.sh \
-    && chmod +x /usr/local/bin/docker-entrypoint.sh
-
+# ============================================================
+# Runtime User
+# ============================================================
 USER www-data
 
 EXPOSE 9000
 
 ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
-
 
 CMD ["php-fpm"]
