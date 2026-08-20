@@ -23,11 +23,11 @@ WORKDIR /app
 
 COPY composer.json composer.lock ./
 
-ARG "GITHUB_TOKEN"
+# ARG "GITHUB_TOKEN"
 
-RUN if [ -n "$GITHUB_TOKEN" ]; then \
-        composer config -g github-oauth.github.com "$GITHUB_TOKEN"; \
-    fi
+# RUN if [ -n "$GITHUB_TOKEN" ]; then \
+#         composer config -g github-oauth.github.com "$GITHUB_TOKEN"; \
+#     fi
 
 RUN --mount=type=cache,target=/root/.composer/cache \
     composer install \
