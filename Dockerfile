@@ -1,9 +1,8 @@
-# ./docker/php/Dockerfile.prod
-# ARG GITHUB_TOKEN
+# ============================================================
+# Stage 1: Frontend Build
+# ============================================================
+ARG GITHUB_TOKEN
 
-# ============================================================
-# Stage 1: Build Dependencies (Node and Vite)
-# ============================================================
 FROM node:24.16.0-alpine AS frontend
 
 WORKDIR /app
@@ -18,7 +17,7 @@ RUN npm run build
 
 
 # ============================================================
-# Stage 1: Build Dependencies (Composer)
+# Stage 2: Composer Dependencies
 # ============================================================
 FROM composer:2 AS vendor
 
@@ -26,10 +25,9 @@ WORKDIR /app
 
 COPY composer.json composer.lock ./
 
-# Configure GitHub OAuth token if provided
-# RUN if [ -n "$GITHUB_TOKEN" ]; then \
-#         composer config -g github-oauth.github.com "$GITHUB_TOKEN"; \
-#     fi
+RUN if [ -n "$GITHUB_TOKEN" ]; then \
+        composer config -g github-oauth.github.com "$GITHUB_TOKEN"; \
+    fi
 
 RUN --mount=type=cache,target=/root/.composer/cache \
     composer install \
@@ -46,12 +44,15 @@ RUN composer dump-autoload --optimize
 
 
 # ============================================================
-# Stage 2: Production PHP-FPM
+# Stage 3: Production PHP-FPM
 # ============================================================
 FROM php:8.4-fpm AS production
 
-# Install system dependencies and PHP extensions
-RUN apt-get update && apt-get install -y --no-install-recommends \
+# ============================================================
+# System Dependencies + PHP Extensions
+# ============================================================
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
         git \
         unzip \
         zip \
@@ -83,7 +84,16 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         zip \
     && pecl install redis \
     && docker-php-ext-enable redis \
-    && apt-get purge -y --auto-remove $PHPIZE_DEPS \
+    && apt-get purge -y --auto-remove \
+        autoconf \
+        dpkg-dev \
+        file \
+        g++ \
+        gcc \
+        libc-dev \
+        make \
+        pkg-config \
+        re2c \
     && rm -rf /var/lib/apt/lists/*
 
 
