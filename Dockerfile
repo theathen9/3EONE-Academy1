@@ -144,7 +144,7 @@ RUN mkdir -p \
 # ============================================================
 # Entrypoint
 # ============================================================
-COPY docker/php/entrypoint.sh \
+COPY docker/nginx/entrypoint.sh \
     /usr/local/bin/docker-entrypoint.sh
 
 RUN sed -i 's/\r$//' /usr/local/bin/docker-entrypoint.sh \
