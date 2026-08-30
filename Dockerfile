@@ -1,7 +1,7 @@
 # ============================================================
 # Stage 1: Frontend
 # ============================================================
-FROM node:latest AS frontend
+FROM node:22-alpine AS frontend
 
 WORKDIR /app
 
@@ -23,12 +23,6 @@ WORKDIR /app
 
 COPY composer.json composer.lock ./
 
-# ARG "GITHUB_TOKEN"
-
-# RUN if [ -n "$GITHUB_TOKEN" ]; then \
-#         composer config -g github-oauth.github.com "$GITHUB_TOKEN"; \
-#     fi
-
 RUN --mount=type=cache,target=/root/.composer/cache \
     composer install \
         --no-dev \
@@ -48,14 +42,16 @@ RUN composer dump-autoload --optimize
 # ============================================================
 FROM php:8.4-fpm AS production
 
+ENV APP_ENV=production
+ENV APP_DEBUG=false
+
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
-        git \
         nginx \
-        unzip \
-        libfcgi-bin \
-        zip \
         curl \
+        unzip \
+        zip \
+        libfcgi-bin \
         libpq-dev \
         libzip-dev \
         libicu-dev \
@@ -103,6 +99,18 @@ COPY docker/php/opcache.ini \
 
 
 # ============================================================
+# Nginx Configuration
+# ============================================================
+RUN rm -f /etc/nginx/conf.d/default.conf
+
+COPY docker/nginx/nginx.conf \
+    /etc/nginx/nginx.conf
+
+COPY docker/nginx/default.conf \
+    /etc/nginx/conf.d/default.conf
+
+
+# ============================================================
 # Application
 # ============================================================
 WORKDIR /var/www/html
@@ -117,29 +125,37 @@ COPY --chown=www-data:www-data \
 
 
 # ============================================================
-# Laravel permissions
+# Laravel Permissions
 # ============================================================
 RUN mkdir -p \
         storage/framework/cache \
         storage/framework/sessions \
         storage/framework/views \
+        storage/logs \
         bootstrap/cache \
     && chown -R www-data:www-data \
+        storage \
+        bootstrap/cache \
+    && chmod -R ug+rwx \
         storage \
         bootstrap/cache
 
 
+# ============================================================
 # Entrypoint
-COPY docker/php/entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+# ============================================================
+COPY docker/php/entrypoint.sh \
+    /usr/local/bin/docker-entrypoint.sh
 
 RUN sed -i 's/\r$//' /usr/local/bin/docker-entrypoint.sh \
     && chmod +x /usr/local/bin/docker-entrypoint.sh
 
-USER www-data
+
+# IMPORTANT:
+# Do NOT use USER www-data here.
+# Nginx/PHP-FPM startup needs root privileges.
+# PHP-FPM workers will run as www-data.
 
 EXPOSE 80
 
-# ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
-
-
-CMD ["/usr/local/bin/docker-entrypoint.sh"]
+ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
