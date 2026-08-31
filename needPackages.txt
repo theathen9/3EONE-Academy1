@@ -1,2 +1,8 @@
 // install npm 
-npm install -g vercel
+// root project use cmd run npm @ composer
+1. composer install
+1. composer install
+2. npm run build
+// root project run npm
+1. npm install
+2. npm run build

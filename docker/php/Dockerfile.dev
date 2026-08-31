@@ -1,0 +1,95 @@
+# ============================================================
+# Laravel Development Image
+# PHP-FPM + Laravel + PostgreSQL + Redis
+# ============================================================
+
+FROM php:8.4-fpm
+
+ENV APP_ENV=local
+ENV APP_DEBUG=true
+
+# ------------------------------------------------------------
+# System dependencies
+# ------------------------------------------------------------
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        git \
+        curl \
+        unzip \
+        zip \
+        libfcgi-bin \
+        libpq-dev \
+        libzip-dev \
+        libicu-dev \
+        libonig-dev \
+        libxml2-dev \
+        libpng-dev \
+        libjpeg62-turbo-dev \
+        libfreetype6-dev \
+        libwebp-dev \
+        $PHPIZE_DEPS \
+    \
+    && docker-php-ext-configure gd \
+        --with-freetype \
+        --with-jpeg \
+        --with-webp \
+    \
+    && docker-php-ext-install -j"$(nproc)" \
+        bcmath \
+        exif \
+        gd \
+        intl \
+        opcache \
+        pcntl \
+        pdo_pgsql \
+        pgsql \
+        zip \
+    \
+    && pecl install redis \
+    && docker-php-ext-enable redis \
+    \
+    && rm -rf /var/lib/apt/lists/*
+
+
+# ------------------------------------------------------------
+# PHP development configuration
+# ------------------------------------------------------------
+COPY docker/php/php.dev.ini \
+    /usr/local/etc/php/conf.d/php.dev.ini
+
+
+# ------------------------------------------------------------
+# Composer
+# ------------------------------------------------------------
+COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
+
+
+# ------------------------------------------------------------
+# Application
+# ------------------------------------------------------------
+WORKDIR /var/www/html
+
+
+# ------------------------------------------------------------
+# Laravel permissions
+# ------------------------------------------------------------
+RUN mkdir -p \
+        storage/framework/cache \
+        storage/framework/sessions \
+        storage/framework/views \
+        storage/logs \
+        bootstrap/cache \
+    && chown -R www-data:www-data \
+        storage \
+        bootstrap/cache \
+    && chmod -R ug+rwx \
+        storage \
+        bootstrap/cache
+
+
+# ------------------------------------------------------------
+# PHP-FPM
+# ------------------------------------------------------------
+EXPOSE 9000
+
+CMD ["php-fpm", "-F"]
