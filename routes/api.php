@@ -1,9 +1,7 @@
 <?php
-// ./routes/api.php
 
-use Illuminate\Http\Request;
+use App\Http\Controllers\Api\Auth\ApiAuthController;
 use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\Api\Auth\ApiAuthController as ApiAuthController;
 
 /*
 |--------------------------------------------------------------------------
@@ -15,48 +13,67 @@ Route::prefix('v1')->group(function () {
 
     /*
     |--------------------------------------------------------------------------
-    | Authentication
+    | Authentication - Public
     |--------------------------------------------------------------------------
     */
 
     Route::post('/auth/login', [
         ApiAuthController::class,
-        'login'
+        'login',
     ])->name('api.v1.auth.login');
-
 
     Route::post('/auth/refresh', [
         ApiAuthController::class,
-        'refresh'
+        'refresh',
     ])->name('api.v1.auth.refresh');
 
 
-    Route::post('/auth/logout', [
-        ApiAuthController::class,
-        'logout'
-    ])->name('api.v1.auth.logout');
-
     /*
     |--------------------------------------------------------------------------
-    | Users
+    | Authentication - JWT Protected
     |--------------------------------------------------------------------------
     */
 
-    Route::get('/users', function (Request $request) {
-        return response()->json([
-            'message' => 'Users API',
-        ]);
+    Route::middleware('api.auth')->group(function () {
+
+        Route::get('/auth/token', [
+            ApiAuthController::class,
+            'token',
+        ])->name('api.v1.auth.token');
+
+        Route::post('/auth/logout', [
+            ApiAuthController::class,
+            'logout',
+        ])->name('api.v1.auth.logout');
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | Users - JWT Protected
+        |--------------------------------------------------------------------------
+        */
+
+        Route::get('/users', function () {
+            return response()->json([
+                'success' => true,
+                'message' => 'Users API',
+            ]);
+        });
+
     });
 
-    Route::get('/debug-url', function (Request $request) {
+
+    /*
+    |--------------------------------------------------------------------------
+    | Debug
+    |--------------------------------------------------------------------------
+    */
+
+    Route::get('/debug-url', function () {
         return response()->json([
             'url' => url('/'),
             'asset' => asset('build/assets/app.css'),
-            'scheme' => $request->getScheme(),
-            'is_secure' => $request->isSecure(),
-            'forwarded_proto' => $request->header('x-forwarded-proto'),
-            'app_url' => config('app.url'),
-            'asset_url' => config('app.asset_url'),
         ]);
-    });
+    })->name('api.v1.debug-url');
+
 });

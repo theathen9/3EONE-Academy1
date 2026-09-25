@@ -14,9 +14,10 @@ COPY . .
 RUN npm run build
 
 
-# ============================================================
-# Stage 2: Composer
-# ============================================================
+# =========================================================
+# 2. Composer dependencies
+# =========================================================
+
 FROM composer:2 AS vendor
 
 WORKDIR /app
@@ -37,10 +38,9 @@ COPY . .
 RUN composer dump-autoload --optimize
 
 
-# ============================================================
-# Stage 3: Production
-# ============================================================
-FROM php:8.4-fpm AS production
+# =========================================================
+# 3. Application
+# =========================================================
 
 ENV APP_ENV=production
 ENV APP_DEBUG=false
@@ -91,11 +91,24 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 
-# ============================================================
-# PHP Configuration
-# ============================================================
-COPY docker/php/opcache.ini \
-    /usr/local/etc/php/conf.d/opcache.ini
+# =========================================================
+# PHP extensions
+# =========================================================
+
+RUN docker-php-ext-configure gd \
+    --with-freetype \
+    --with-jpeg \
+    --with-webp
+
+RUN docker-php-ext-install -j"$(nproc)" \
+    bcmath \
+    exif \
+    gd \
+    intl \
+    opcache \
+    pdo_pgsql \
+    pgsql \
+    zip
 
 
 # ============================================================
@@ -115,10 +128,9 @@ COPY docker/nginx/default.conf \
 # ============================================================
 WORKDIR /var/www/html
 
-COPY --chown=www-data:www-data . .
+COPY . .
 
-COPY --chown=www-data:www-data \
-    --from=vendor /app/vendor ./vendor
+COPY --from=vendor /app/vendor ./vendor
 
 COPY --chown=www-data:www-data \
     --from=frontend /app/public/build ./public/build
@@ -147,8 +159,7 @@ RUN mkdir -p \
 COPY docker/nginx/entrypoint.sh \
     /usr/local/bin/docker-entrypoint.sh
 
-RUN sed -i 's/\r$//' /usr/local/bin/docker-entrypoint.sh \
-    && chmod +x /usr/local/bin/docker-entrypoint.sh
+RUN php artisan package:discover --ansi
 
 
 # IMPORTANT:

@@ -11,10 +11,6 @@ use Illuminate\Support\Facades\Hash;
 
 class AuthService
 {
-    public function __construct(
-        private JwtService $jwtService
-    ) {}
-
     /*
     |--------------------------------------------------------------------------
     | Find + Verify User
@@ -46,16 +42,11 @@ class AuthService
             return null;
         }
 
-        /*
-         * Disabled users cannot login.
-         */
+        // Prevent disabled users from logging in.
         if (!$user->status) {
             return null;
         }
 
-        /*
-         * Verify password.
-         */
         if (!Hash::check(
             $password,
             $user->password
@@ -64,7 +55,10 @@ class AuthService
         }
 
         /*
-         * Update last login.
+         * Update last_login only after successful authentication.
+         *
+         * Do not put this inside createTokens(), because
+         * createTokens() is also called during token refresh.
          */
         $user->update([
             'last_login' => now(),
@@ -72,6 +66,7 @@ class AuthService
 
         return $user;
     }
+
 
     /*
     |--------------------------------------------------------------------------
@@ -102,10 +97,22 @@ class AuthService
         ]);
     }
 
+
     /*
     |--------------------------------------------------------------------------
-    | Create JWT + Refresh Token
+    | Create API Token Pair
     |--------------------------------------------------------------------------
+    |
+    | Access token:
+    |   Raw: 64 characters
+    |   DB:  SHA-256 hash
+    |   Life: 15 minutes
+    |
+    | Refresh token:
+    |   Raw: 128 characters
+    |   DB:  SHA-256 hash
+    |   Life: 1 day
+    |
     */
 
     public function createTokens(
@@ -113,77 +120,37 @@ class AuthService
         User $user
     ): array {
         /*
-         * Create JWT access token.
+         * Generate cryptographically secure random tokens.
          */
-        $accessToken = $this->jwtService->createAccessToken(
-            $user
+        $accessToken = bin2hex(
+            random_bytes(32)
         );
 
-        /*
-         * Get the exact JTI from the JWT.
-         */
-        $payload = $this->jwtService->payload(
-            $accessToken
-        );
-
-        if (!$payload || empty($payload['jti'])) {
-            throw new \RuntimeException(
-                'Unable to create JWT JTI.'
-            );
-        }
-
-        $jti = (string) $payload['jti'];
-
-        /*
-         * Create secure opaque refresh token.
-         */
         $refreshToken = bin2hex(
             random_bytes(64)
         );
 
         /*
-         * Token lifetime.
+         * Token expiration.
          */
-        $accessTtl = (int) config(
-            'jwt.access_ttl',
-            900
-        );
+        $accessExpiry = now()->addMinutes(15);
 
-        $refreshTtl = (int) config(
-            'jwt.refresh_ttl',
-            86400
-        );
-
-        $accessExpiry = now()->addSeconds(
-            $accessTtl
-        );
-
-        $refreshExpiry = now()->addSeconds(
-            $refreshTtl
-        );
+        $refreshExpiry = now()->addDay();
 
         /*
-         * Store only hashes.
+         * Store ONLY hashes in the database.
+         *
+         * The raw tokens are returned to the caller and
+         * placed into HttpOnly cookies by the controller.
          */
         UserToken::create([
             'user_id' => $user->user_id,
 
-            /*
-             * Exact JTI contained in JWT.
-             */
-            'jti' => $jti,
-
-            /*
-             * SHA-256 hash of JWT.
-             */
             'access_token' => hash(
                 'sha256',
                 $accessToken
             ),
 
-            /*
-             * SHA-256 hash of refresh token.
-             */
             'refresh_token' => hash(
                 'sha256',
                 $refreshToken
@@ -200,6 +167,11 @@ class AuthService
             'ip_address' => $request->ip(),
         ]);
 
+        /*
+         * Return RAW tokens.
+         *
+         * These should never be stored directly in the database.
+         */
         return [
             'access_token' => $accessToken,
 
@@ -207,30 +179,32 @@ class AuthService
 
             'token_type' => 'Bearer',
 
-            'expires_in' => $accessTtl,
+            'expires_in' => 900, // 15 minutes
 
-            'refresh_expires_in' => $refreshTtl,
+            'refresh_expires_in' => 86400, // 1 day
         ];
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | Get JWT Payload
-    |--------------------------------------------------------------------------
-    */
-
-    public function getTokenPayload(
-        string $accessToken
-    ): ?array {
-        return $this->jwtService->payload(
-            $accessToken
-        );
-    }
 
     /*
     |--------------------------------------------------------------------------
-    | Refresh JWT + Refresh Token
+    | Refresh API Tokens
     |--------------------------------------------------------------------------
+    |
+    | Refresh-token rotation:
+    |
+    |   Refresh A
+    |       ↓
+    |   validate
+    |       ↓
+    |   revoke A
+    |       ↓
+    |   create B
+    |       ↓
+    |   Access B + Refresh B
+    |
+    | The old refresh token cannot be reused.
+    |
     */
 
     public function refreshTokens(
@@ -244,16 +218,14 @@ class AuthService
         }
 
         /*
-         * Hash incoming refresh token.
+         * Hash the RAW refresh token received from
+         * the cookie before searching the database.
          */
         $refreshTokenHash = hash(
             'sha256',
             $refreshToken
         );
 
-        /*
-         * Find active refresh token.
-         */
         $token = UserToken::query()
             ->with('user.role')
             ->where(
@@ -275,43 +247,47 @@ class AuthService
         $user = $token->user;
 
         /*
-         * User no longer exists or is disabled.
+         * Token belongs to a disabled/deleted user.
          */
         if (!$user || !$user->status) {
             return null;
         }
 
         /*
-         * Refresh token rotation.
+         * Revoke old token pair and create the new pair
+         * inside one database transaction.
          */
-        return DB::transaction(
-            function () use (
-                $request,
-                $token,
-                $user
-            ) {
-                /*
-                 * Revoke old token pair.
-                 */
-                $token->update([
-                    'revoked_at' => now(),
-                ]);
+        return DB::transaction(function () use (
+            $request,
+            $token,
+            $user
+        ) {
+            /*
+             * Revoke the old access + refresh token pair.
+             */
+            $token->update([
+                'revoked_at' => now(),
+            ]);
 
-                /*
-                 * Create new JWT + refresh token.
-                 */
-                return $this->createTokens(
-                    $request,
-                    $user
-                );
-            }
-        );
+            /*
+             * Create completely new access + refresh tokens.
+             */
+            return $this->createTokens(
+                $request,
+                $user
+            );
+        });
     }
+
 
     /*
     |--------------------------------------------------------------------------
-    | API Logout / Revoke JWT
+    | API Logout
     |--------------------------------------------------------------------------
+    |
+    | The access token identifies the token pair.
+    | Revoking the row also invalidates its refresh token.
+    |
     */
 
     public function logout(
@@ -324,35 +300,25 @@ class AuthService
         }
 
         /*
-         * Decode and verify JWT.
+         * Hash the RAW access token received from
+         * the Authorization header or cookie.
          */
-        $payload = $this->jwtService->payload(
+        $accessTokenHash = hash(
+            'sha256',
             $accessToken
         );
 
-        if (!$payload) {
-            return;
-        }
-
-        /*
-         * Get JWT ID.
-         */
-        $jti = $payload['jti'] ?? null;
-
-        if (!$jti) {
-            return;
-        }
-
-        /*
-         * Revoke entire token pair.
-         */
         UserToken::query()
-            ->where('jti', $jti)
+            ->where(
+                'access_token',
+                $accessTokenHash
+            )
             ->whereNull('revoked_at')
             ->update([
                 'revoked_at' => now(),
             ]);
     }
+
 
     /*
     |--------------------------------------------------------------------------

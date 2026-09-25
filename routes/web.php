@@ -23,9 +23,31 @@ Route::middleware('guest')
         ])->name('signin');
 
         Route::post('/signin', [
+        WebAuthController::class,
+         'login'
+        ])->name('login');
+
+            // Forgot password
+        Route::get('/forgot-password', [
             WebAuthController::class,
-            'login'
-        ])->name('signin.submit');
+            'showForgotPassword'
+        ])->name('forgot');
+
+        Route::post('/forgot-password', [
+            WebAuthController::class,
+            'sendResetLink'
+        ])->name('forgot.submit');
+
+        // Reset password
+        Route::get('/reset-password/{token}', [
+            WebAuthController::class,
+            'showResetPassword'
+        ])->name('reset');
+
+        Route::post('/reset-password', [
+            WebAuthController::class,
+            'resetPassword'
+        ])->name('reset.submit');
 
     });
 

@@ -20,7 +20,7 @@
 
                 {{-- Title --}}
                 <h1 class="mb-6 text-center text-xl font-bold text-gray-900">
-                    3E ONE
+                    3EONE
                 </h1>
 
                 {{-- Error Message --}}
