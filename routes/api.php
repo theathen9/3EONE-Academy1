@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\Auth\ApiAuthController;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -69,11 +70,16 @@ Route::prefix('v1')->group(function () {
     |--------------------------------------------------------------------------
     */
 
-    Route::get('/debug-url', function () {
+    Route::get('/debug-ip', function (Request $request) {
         return response()->json([
-            'url' => url('/'),
-            'asset' => asset('build/assets/app.css'),
+            'ip' => $request->ip(),
+            'ips' => $request->ips(),
+            'user_agent' => $request->userAgent(),
+            'headers' => [
+                'x_forwarded_for' => $request->header('X-Forwarded-For'),
+                'x_real_ip' => $request->header('X-Real-IP'),
+            ],
         ]);
-    })->name('api.v1.debug-url');
+    });
 
 });
