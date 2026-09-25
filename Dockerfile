@@ -1,5 +1,5 @@
 # ============================================================
-# Stage 1: Frontend
+# 1. Frontend
 # ============================================================
 FROM node:22-alpine AS frontend
 
@@ -14,10 +14,9 @@ COPY . .
 RUN npm run build
 
 
-# =========================================================
+# ============================================================
 # 2. Composer dependencies
-# =========================================================
-
+# ============================================================
 FROM composer:2 AS vendor
 
 WORKDIR /app
@@ -38,13 +37,20 @@ COPY . .
 RUN composer dump-autoload --optimize
 
 
-# =========================================================
-# 3. Application
-# =========================================================
+# ============================================================
+# 3. PHP / Laravel Application
+# ============================================================
+FROM php:8.4-fpm-bookworm AS app
 
 ENV APP_ENV=production
 ENV APP_DEBUG=false
 
+WORKDIR /var/www/html
+
+
+# ============================================================
+# System dependencies + PHP extensions
+# ============================================================
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         nginx \
@@ -62,10 +68,12 @@ RUN apt-get update \
         libfreetype6-dev \
         libwebp-dev \
         $PHPIZE_DEPS \
+    \
     && docker-php-ext-configure gd \
         --with-freetype \
         --with-jpeg \
         --with-webp \
+    \
     && docker-php-ext-install -j"$(nproc)" \
         bcmath \
         exif \
@@ -76,8 +84,10 @@ RUN apt-get update \
         pdo_pgsql \
         pgsql \
         zip \
+    \
     && pecl install redis \
     && docker-php-ext-enable redis \
+    \
     && apt-get purge -y --auto-remove \
         autoconf \
         dpkg-dev \
@@ -88,33 +98,15 @@ RUN apt-get update \
         make \
         pkg-config \
         re2c \
+    \
     && rm -rf /var/lib/apt/lists/*
-
-
-# =========================================================
-# PHP extensions
-# =========================================================
-
-RUN docker-php-ext-configure gd \
-    --with-freetype \
-    --with-jpeg \
-    --with-webp
-
-RUN docker-php-ext-install -j"$(nproc)" \
-    bcmath \
-    exif \
-    gd \
-    intl \
-    opcache \
-    pdo_pgsql \
-    pgsql \
-    zip
 
 
 # ============================================================
 # Nginx Configuration
 # ============================================================
-RUN rm -f /etc/nginx/conf.d/default.conf
+RUN rm -f /etc/nginx/sites-enabled/default \
+          /etc/nginx/conf.d/default.conf
 
 COPY docker/nginx/nginx.conf \
     /etc/nginx/nginx.conf
@@ -124,16 +116,15 @@ COPY docker/nginx/default.conf \
 
 
 # ============================================================
-# Application
+# Laravel Application
 # ============================================================
-WORKDIR /var/www/html
-
 COPY . .
 
 COPY --from=vendor /app/vendor ./vendor
 
 COPY --chown=www-data:www-data \
-    --from=frontend /app/public/build ./public/build
+    --from=frontend /app/public/build \
+    ./public/build
 
 
 # ============================================================
@@ -154,19 +145,23 @@ RUN mkdir -p \
 
 
 # ============================================================
+# Laravel package discovery
+# ============================================================
+RUN php artisan package:discover --ansi
+
+
+# ============================================================
 # Entrypoint
 # ============================================================
 COPY docker/nginx/entrypoint.sh \
     /usr/local/bin/docker-entrypoint.sh
 
-RUN php artisan package:discover --ansi
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
 
-# IMPORTANT:
-# Do NOT use USER www-data here.
-# Nginx/PHP-FPM startup needs root privileges.
-# PHP-FPM workers will run as www-data.
-
+# ============================================================
+# Runtime
+# ============================================================
 EXPOSE 80
 
 ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
