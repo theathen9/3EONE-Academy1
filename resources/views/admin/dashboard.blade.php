@@ -1,13 +1,13 @@
 @extends('layouts.app')
 
-@section('title', 'Admin Dashboard')
+@section('title', 'Dashboard')
 
 @section('content')
 
     <div class="container-fluid">
 
         <h1 class="mb-4">
-            Admin Dashboard
+            Dashboard
         </h1>
 
         <div class="row">
