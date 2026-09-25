@@ -15,8 +15,8 @@ class UserToken extends Model
 
     protected $fillable = [
         'user_id',
+        'device_id',
         'jti',
-        'access_token',
         'access_expiry',
         'refresh_token',
         'refresh_expiry',
@@ -27,7 +27,6 @@ class UserToken extends Model
     ];
 
     protected $hidden = [
-        'access_token',
         'refresh_token',
     ];
 
@@ -38,6 +37,9 @@ class UserToken extends Model
         'revoked_at' => 'datetime',
     ];
 
+    /**
+     * User who owns this token session.
+     */
     public function user(): BelongsTo
     {
         return $this->belongsTo(
@@ -46,14 +48,4 @@ class UserToken extends Model
             'user_id'
         );
     }
-
-    public function tokens() 
-    { 
-        return $this->hasMany( 
-            UserToken::class, 
-            'user_id', 
-            'user_id' 
-        ); 
-    }
-    
 }

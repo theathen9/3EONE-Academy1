@@ -8,6 +8,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
 
 class AuthService
 {
@@ -104,14 +105,121 @@ class AuthService
 
     /*
     |--------------------------------------------------------------------------
+    | Device ID
+    |--------------------------------------------------------------------------
+    */
+
+    private function getDeviceId(
+        Request $request
+    ): string {
+        /*
+         * Browser sends existing device ID.
+         */
+        $deviceId = $request->cookie('device_id');
+
+        /*
+         * First login from this browser.
+         */
+        if (!$deviceId) {
+            $deviceId = (string) Str::uuid();
+        }
+
+        return $deviceId;
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Device Information
+    |--------------------------------------------------------------------------
+    */
+
+    private function getDeviceInfo(
+        Request $request
+    ): string {
+        $userAgent = $request->userAgent() ?? '';
+
+        if (str_contains(
+            strtolower($userAgent),
+            'android'
+        )) {
+            return 'Android';
+        }
+
+        if (
+            str_contains(
+                strtolower($userAgent),
+                'iphone'
+            )
+            ||
+            str_contains(
+                strtolower($userAgent),
+                'ipad'
+            )
+        ) {
+            return 'iOS';
+        }
+
+        if (str_contains(
+            strtolower($userAgent),
+            'windows'
+        )) {
+            if (str_contains(
+                strtolower($userAgent),
+                'edg'
+            )) {
+                return 'Windows / Edge';
+            }
+
+            if (str_contains(
+                strtolower($userAgent),
+                'chrome'
+            )) {
+                return 'Windows / Chrome';
+            }
+
+            if (str_contains(
+                strtolower($userAgent),
+                'firefox'
+            )) {
+                return 'Windows / Firefox';
+            }
+
+            return 'Windows';
+        }
+
+        if (str_contains(
+            strtolower($userAgent),
+            'macintosh'
+        )) {
+            return 'macOS';
+        }
+
+        if (str_contains(
+            strtolower($userAgent),
+            'linux'
+        )) {
+            return 'Linux';
+        }
+
+        return 'Unknown';
+    }
+
+    /*
+    |--------------------------------------------------------------------------
     | Create JWT + Refresh Token
     |--------------------------------------------------------------------------
     */
 
     public function createTokens(
         Request $request,
-        User $user
+        User $user,
+        ?string $deviceId = null
     ): array {
+        /*
+         * Get existing device ID or create one.
+         */
+        $deviceId ??= $this->getDeviceId($request);
+
         /*
          * Create JWT access token.
          */
@@ -120,7 +228,7 @@ class AuthService
         );
 
         /*
-         * Get the exact JTI from the JWT.
+         * Get exact JTI from JWT.
          */
         $payload = $this->jwtService->payload(
             $accessToken
@@ -163,37 +271,30 @@ class AuthService
         );
 
         /*
-         * Store only hashes.
+         * Store token session.
+         *
+         * IMPORTANT:
+         * We do NOT store the raw access JWT.
          */
         UserToken::create([
             'user_id' => $user->user_id,
 
-            /*
-             * Exact JTI contained in JWT.
-             */
+            'device_id' => $deviceId,
+
             'jti' => $jti,
 
-            /*
-             * SHA-256 hash of JWT.
-             */
-            'access_token' => hash(
-                'sha256',
-                $accessToken
-            ),
+            'access_expiry' => $accessExpiry,
 
-            /*
-             * SHA-256 hash of refresh token.
-             */
             'refresh_token' => hash(
                 'sha256',
                 $refreshToken
             ),
 
-            'access_expiry' => $accessExpiry,
-
             'refresh_expiry' => $refreshExpiry,
 
-            'device_info' => null,
+            'device_info' => $this->getDeviceInfo(
+                $request
+            ),
 
             'user_agent' => $request->userAgent(),
 
@@ -204,6 +305,8 @@ class AuthService
             'access_token' => $accessToken,
 
             'refresh_token' => $refreshToken,
+
+            'device_id' => $deviceId,
 
             'token_type' => 'Bearer',
 
@@ -282,13 +385,19 @@ class AuthService
         }
 
         /*
+         * Preserve original device ID.
+         */
+        $deviceId = $token->device_id;
+
+        /*
          * Refresh token rotation.
          */
         return DB::transaction(
             function () use (
                 $request,
                 $token,
-                $user
+                $user,
+                $deviceId
             ) {
                 /*
                  * Revoke old token pair.
@@ -302,7 +411,8 @@ class AuthService
                  */
                 return $this->createTokens(
                     $request,
-                    $user
+                    $user,
+                    $deviceId
                 );
             }
         );
@@ -344,7 +454,7 @@ class AuthService
         }
 
         /*
-         * Revoke entire token pair.
+         * Revoke token session.
          */
         UserToken::query()
             ->where('jti', $jti)

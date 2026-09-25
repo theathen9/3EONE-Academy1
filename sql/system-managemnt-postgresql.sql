@@ -874,25 +874,33 @@ CREATE TABLE tblUserTokens (
 
     user_id BIGINT NOT NULL,
 
+    -- Browser/device identifier
+    device_id VARCHAR(100) NOT NULL,
+
     -- JWT ID (jti)
     jti UUID NOT NULL UNIQUE,
 
-    access_expiry TIMESTAMP NOT NULL,
+    -- Access JWT expiration
+    access_expiry TIMESTAMPTZ NOT NULL,
 
     -- SHA-256 hash of the raw refresh token
     refresh_token CHAR(64) NOT NULL UNIQUE,
 
-    refresh_expiry TIMESTAMP NOT NULL,
+    -- Refresh token expiration
+    refresh_expiry TIMESTAMPTZ NOT NULL,
 
+    -- Human-readable device information
     device_info VARCHAR(255),
 
+    -- Browser/client User-Agent
     user_agent TEXT,
 
+    -- Client IP address
     ip_address VARCHAR(45),
 
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
 
-    revoked_at TIMESTAMP NULL,
+    revoked_at TIMESTAMPTZ NULL,
 
     CONSTRAINT fk_user_token_user
         FOREIGN KEY (user_id)

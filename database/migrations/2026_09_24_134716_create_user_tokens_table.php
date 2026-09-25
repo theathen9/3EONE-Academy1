@@ -12,7 +12,11 @@ return new class extends Migration
     {
         Schema::create('tblUserTokens', function (Blueprint $table) {
 
+            /*
+             * Primary Key
+             */
             $table->id('token_id');
+
 
             /*
              * User
@@ -21,21 +25,25 @@ return new class extends Migration
                 ->constrained('tblUsers', 'user_id')
                 ->cascadeOnDelete();
 
+
+            /*
+             * Browser / Device Identifier
+             */
+            $table->string('device_id', 100);
+
+
             /*
              * JWT ID
              */
             $table->uuid('jti')
                 ->unique();
 
-            /*
-             * JWT access token
-             */
-            $table->string('access_token', 255);
 
             /*
-             * JWT expiration
+             * JWT Access Token Expiration
              */
-            $table->timestamp('access_expiry');
+            $table->timestampTz('access_expiry');
+
 
             /*
              * SHA-256 hash of refresh token
@@ -43,41 +51,70 @@ return new class extends Migration
             $table->char('refresh_token', 64)
                 ->unique();
 
+
             /*
              * Refresh-token expiration
              */
-            $table->timestamp('refresh_expiry');
+            $table->timestampTz('refresh_expiry');
+
 
             /*
-             * Device information
+             * Human-readable device information
              */
             $table->string('device_info', 255)
                 ->nullable();
 
+
             /*
-             * User agent
+             * Browser / Client User-Agent
              */
             $table->text('user_agent')
                 ->nullable();
 
+
             /*
-             * IP address
+             * Client IP address
              */
             $table->string('ip_address', 45)
                 ->nullable();
 
+
             /*
-             * Created timestamp
+             * Session created timestamp
              */
-            $table->timestamp('created_at')
+            $table->timestampTz('created_at')
                 ->useCurrent();
+
 
             /*
              * NULL = active
              * timestamp = revoked
              */
-            $table->timestamp('revoked_at')
+            $table->timestampTz('revoked_at')
                 ->nullable();
+
+
+            /*
+             * Indexes
+             */
+
+            // Find sessions belonging to a user's device
+            $table->index(
+                ['user_id', 'device_id'],
+                'idx_user_tokens_user_device'
+            );
+
+            // Find expired refresh tokens
+            $table->index(
+                'refresh_expiry',
+                'idx_user_tokens_refresh_expiry'
+            );
+
+            // Find revoked/active sessions
+            $table->index(
+                'revoked_at',
+                'idx_user_tokens_revoked_at'
+            );
         });
     }
 
