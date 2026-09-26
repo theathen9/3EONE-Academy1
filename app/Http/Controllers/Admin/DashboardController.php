@@ -8,7 +8,6 @@ use Throwable;
 class DashboardController extends Controller
 {
     public function index()
-<<<<<<< HEAD
     {
         try {
             return view('admin.dashboard');
@@ -22,9 +21,3 @@ class DashboardController extends Controller
         }
     }
 }
-=======
-{
-    return 'Admin dashboard controller works';
-}
-}
->>>>>>> 5671c4ae1b3059ed502cb0372cf4bcf9fb225b15
