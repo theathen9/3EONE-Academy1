@@ -10,9 +10,13 @@ class DashboardController extends Controller
     public function index()
     {
         try {
-            return view('admin.dashboard');
+            return response()->json([
+                'status' => 'controller-reached',
+                'message' => 'Dashboard controller is working',
+            ]);
         } catch (Throwable $e) {
             return response()->json([
+                'status' => 'controller-error',
                 'error' => get_class($e),
                 'message' => $e->getMessage(),
                 'file' => $e->getFile(),
